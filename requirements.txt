@@ -1,0 +1,10 @@
+# Minimum dependencies for the current development stage.
+# pandas is needed now that src/data_prep.py is implemented (generic
+# tabular loading/validation/cleaning). Further libraries (numpy,
+# scikit-learn, xgboost, etc.) will be added in later steps when the
+# corresponding modules (model.py, etc.) are actually implemented,
+# per architecture.md Section 13 ("Build the simplest working version
+# first").
+
+pytest>=8.0.0
+pandas>=2.0.0
