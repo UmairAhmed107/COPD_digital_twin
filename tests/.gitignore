@@ -1,0 +1,16 @@
+# Python caches
+__pycache__/
+*.pyc
+.pytest_cache/
+env/
+venv/
+
+# ML Artifacts (prevent committing large models)
+artifacts/
+*.joblib
+*.pkl
+
+# Frontend
+node_modules/
+.next/
+.env.local
