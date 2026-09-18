@@ -14,6 +14,7 @@ import {
   Zap,
   ShieldCheck,
   CheckCircle2,
+  Clock,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -226,6 +227,48 @@ export default function Layer3Simulation({ selectedPatientId }: Layer3Simulation
       ? Math.round((riskReductionPct / baselineRiskFinal) * 100)
       : null;
 
+  // Severe Impairment Delay Calculations (Translating delta math to clinical value)
+  const horizonYears = Math.max(1, horizonMonths / 12);
+  const baselineAnnualDecline =
+    baselineFinal !== null
+      ? Math.max(0.025, (currentFev1 - baselineFinal) / horizonYears)
+      : 0.040; // Clinical baseline COPD decline rate ~40 mL/yr
+
+  const cessationGainNum =
+    baselineFinal !== null && cessationFinal !== null
+      ? Math.max(0, cessationFinal - baselineFinal)
+      : 0;
+
+  const activityGainNum =
+    baselineFinal !== null && activityFinal !== null
+      ? Math.max(0, activityFinal - baselineFinal)
+      : 0;
+
+  const combinedGainNum =
+    baselineFinal !== null && combinedFinal !== null
+      ? Math.max(0, combinedFinal - baselineFinal)
+      : 0;
+
+  const cessationYearsDelayed =
+    baselineAnnualDecline > 0 && cessationGainNum > 0
+      ? (cessationGainNum / baselineAnnualDecline).toFixed(1)
+      : null;
+
+  const combinedYearsDelayed =
+    baselineAnnualDecline > 0 && combinedGainNum > 0
+      ? (combinedGainNum / baselineAnnualDecline).toFixed(1)
+      : null;
+
+  const activityYearsDelayed =
+    baselineAnnualDecline > 0 && activityGainNum > 0
+      ? (activityGainNum / baselineAnnualDecline).toFixed(1)
+      : null;
+
+  const activeInterventionYearsDelayed =
+    baselineAnnualDecline > 0 && deltaPreserved && deltaPreserved > 0
+      ? (deltaPreserved / baselineAnnualDecline).toFixed(1)
+      : null;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
       {/* Simulation Controls Card */}
@@ -377,7 +420,7 @@ export default function Layer3Simulation({ selectedPatientId }: Layer3Simulation
 
       {/* Trajectory Divergence Chart */}
       <div className="card">
-        <div className="card-header">
+        <div className="card-header" style={{ paddingBottom: "0.75rem" }}>
           <div>
             <h3 className="card-title">
               <TrendingUp size={18} color="#0d9488" />
@@ -401,6 +444,74 @@ export default function Layer3Simulation({ selectedPatientId }: Layer3Simulation
             >
               <Award size={15} />
               +{cessationGain} L preserved via smoking cessation
+            </div>
+          )}
+        </div>
+
+        {/* Prominent Resource ROI Badges Strip */}
+        <div
+          id="resource-roi-badges"
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "0.6rem",
+            alignItems: "center",
+            padding: "0.75rem 1rem",
+            marginBottom: "1rem",
+            background: "linear-gradient(135deg, #f8fafc, #f1f5f9)",
+            border: "1px solid var(--border-light)",
+            borderRadius: "var(--radius-md)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginRight: "0.25rem" }}>
+            <Award size={15} color="var(--teal-primary)" />
+            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+              Clinical ROI Badges:
+            </span>
+          </div>
+
+          {cessationGainNum > 0 && (
+            <div className="roi-badge roi-badge-emerald">
+              <ShieldCheck size={15} />
+              <span>
+                <strong>Smoking Cessation: </strong> preserves {cessationGainNum.toFixed(2)}L ({Math.round(cessationGainNum * 1000)} mL) capacity
+              </span>
+            </div>
+          )}
+
+          {cessationYearsDelayed && Number(cessationYearsDelayed) > 0 && (
+            <div className="roi-badge roi-badge-teal">
+              <Clock size={15} />
+              <span>
+                <strong>Impairment Buffer: </strong> Delays severe impairment by {cessationYearsDelayed} years
+              </span>
+            </div>
+          )}
+
+          {activityGainNum > 0 && (
+            <div className="roi-badge roi-badge-blue">
+              <TrendingUp size={15} />
+              <span>
+                <strong>Physical Activity: </strong> preserves {activityGainNum.toFixed(2)}L functional reserve
+              </span>
+            </div>
+          )}
+
+          {combinedGainNum > 0 && (
+            <div className="roi-badge roi-badge-amber">
+              <Sparkles size={15} />
+              <span>
+                <strong>Combined Synergy: </strong> preserves {combinedGainNum.toFixed(2)}L (delays impairment by {combinedYearsDelayed} yrs)
+              </span>
+            </div>
+          )}
+
+          {riskReductionPct !== null && riskReductionPct > 0 && (
+            <div className="roi-badge roi-badge-emerald">
+              <Flame size={15} color="var(--rose-primary)" />
+              <span>
+                <strong>Flare-up Prevention: </strong> -{riskReductionPct}% 12-month acute risk
+              </span>
             </div>
           )}
         </div>
@@ -810,6 +921,22 @@ export default function Layer3Simulation({ selectedPatientId }: Layer3Simulation
               </div>
               <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.3rem" }}>
                 of projected physiological decline halted over horizon
+              </div>
+            </div>
+
+            {/* Delay Severe Impairment Block */}
+            <div style={{ padding: "1rem", background: "linear-gradient(135deg, #f0fdfa, #ecfeff)", border: "1px solid #99f6e4", borderRadius: "var(--radius-md)" }}>
+              <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#0e7490", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                Impairment Milestone Delay
+              </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem", marginTop: "0.25rem" }}>
+                <span style={{ fontSize: "1.75rem", fontWeight: 800, color: "#0e7490" }}>
+                  +{activeInterventionYearsDelayed || cessationYearsDelayed || "—"}
+                </span>
+                <span style={{ fontSize: "0.875rem", fontWeight: 700, color: "#155e75" }}>Years</span>
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.3rem" }}>
+                additional time before reaching severe stage impairment
               </div>
             </div>
 

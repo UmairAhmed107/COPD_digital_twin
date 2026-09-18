@@ -28,8 +28,9 @@ import { addPatientVisit, getPatient, getPatients, getTwinExplanation } from "..
 import { AddVisitRequest, ExplainResponse, PatientSummary, TwinStateResponse } from "../lib/types";
 import AskTheTwinDrawer from "./AskTheTwinDrawer";
 import LungVisualizer from "./LungVisualizer";
-import AuditTrail from "./AuditTrail";
+import AuditTrail, { generateClinicalNote } from "./AuditTrail";
 import VitalityCommandCenter from "./VitalityCommandCenter";
+import { useToast } from "../context/ToastContext";
 
 interface Layer2EvolvingTwinProps {
   selectedPatientId: string;
@@ -42,10 +43,12 @@ export default function Layer2EvolvingTwin({
   onSelectPatientId,
   onTwinStateChange,
 }: Layer2EvolvingTwinProps) {
+  const { showToast } = useToast();
   const [patientList, setPatientList] = useState<PatientSummary[]>([]);
   const [twinState, setTwinState] = useState<TwinStateResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [latestClinicalNote, setLatestClinicalNote] = useState<string | null>(null);
 
   // Keep ref for onTwinStateChange callback to prevent infinite re-render cycles
   const onTwinStateChangeRef = useRef(onTwinStateChange);
@@ -201,8 +204,44 @@ export default function Layer2EvolvingTwin({
       const updatedTwin = await addPatientVisit(selectedPatientId, visitForm);
       setTwinState(updatedTwin);
       onTwinStateChangeRef.current?.(updatedTwin);
-      setAddVisitSuccess(`Visit #${visitForm.visit_number} successfully recorded! Twin state updated.`);
+
+      // Generate automated plain-English clinical note for the newly recorded visit
+      const historyLen = updatedTwin.history.length;
+      const currentVisit = updatedTwin.history[historyLen - 1];
+      const prevVisit = historyLen > 1 ? updatedTwin.history[historyLen - 2] : null;
+      const note = generateClinicalNote(
+        currentVisit,
+        prevVisit,
+        Number(updatedTwin.static.baseline_fev1_liters || 2.0)
+      );
+
+      setLatestClinicalNote(note);
+      setAddVisitSuccess(note);
       setShowAddVisit(false);
+
+      // Live Alert Feed: trigger high-contrast toast if clinical thresholds are breached
+      const exacCount = Number(visitForm.exacerbations_this_visit || 0);
+      const fev1Val = Number(visitForm.fev1_liters);
+
+      if (exacCount > 0) {
+        showToast({
+          type: "critical",
+          title: "⚠️ Acute Exacerbation Documented",
+          message: `Visit #${visitForm.visit_number} logged ${exacCount} acute flare-up event. High risk protocol triggered.`,
+        });
+      } else if (fev1Val <= 0.90) {
+        showToast({
+          type: "critical",
+          title: "⚠️ Critical Alert: GOLD Stage IV",
+          message: `Observed FEV1 fell to ${fev1Val.toFixed(2)}L, entering Stage IV severe airflow limitation.`,
+        });
+      } else {
+        showToast({
+          type: "success",
+          title: `Clinical Memory: Visit #${visitForm.visit_number} Recorded`,
+          message: note,
+        });
+      }
 
       // Increment form for next possible visit
       const nextNum = visitForm.visit_number + 1;
@@ -504,6 +543,7 @@ export default function Layer2EvolvingTwin({
               history={twinState.history}
               baselineFEV1={Number(twinState.static.baseline_fev1_liters)}
               patientId={twinState.patient_id}
+              latestNote={latestClinicalNote}
             />
 
             {showAddVisit ? (

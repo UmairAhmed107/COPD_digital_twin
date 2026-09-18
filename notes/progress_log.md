@@ -42,3 +42,10 @@ Both models demonstrated high fidelity on the synthetic trajectory curves, with 
 - Built `CreateTwinModal.tsx` in Next.js with real-time FEV1/FVC ratio and GOLD stage calculation, plus instant selection upon creation.
 - Built `VitalityCommandCenter.tsx` in Layer 2 featuring an SVG radial gauge, milestone countdown, cohort percentile banner, and multi-domain report card.
 - Created 9 integration tests in `tests/test_persistence_and_vitality.py`; full suite passes cleanly with 76/76 passing tests. Verified production Next.js build.
+
+**2026-09-18 (Day 2: Tactile Interactivity & Clinical Memory)** — Executed full interactive frontend enhancements:
+- Live Slider Playground (`components/Layer1Prediction.tsx`): Replaced manual inputs for `pack_years`, `bmi`, and `activity_level_at_visit` with tactile range sliders; implemented 300ms live debounced model inference updating FEV1 and composite Health Score (0–100) instantly without submit clicks.
+- Automated Clinical Audit Trail (`components/AuditTrail.tsx` & `components/Layer2EvolvingTwin.tsx`): Built vertical scrolling timeline with automated plain-English clinical notes on every visit (e.g. "Visit 4 Processed: FEV1 decreased by 0.15L. Risk shifted to High"), plus a "Just Recorded" memory banner.
+- Live Alert Feed (`context/ToastContext.tsx`): Implemented floating high-contrast clinical toast notification feed triggered when exacerbation risk > 60%, FEV1 drops to GOLD Stage IV (<= 0.90L), or acute flares occur.
+- Resource ROI Badges (`components/Layer3Simulation.tsx`): Computed scenario deltas translating simulation math into clinical value badges (e.g. "Smoking Cessation preserves 0.30L of FEV1 capacity", "Delays severe impairment by 3.8 years", "Attenuates 12-month acute risk by -28.5%").
+- Verified with `npm run build` (0 TypeScript errors) and `pytest` (76/76 passed).
