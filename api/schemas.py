@@ -41,6 +41,42 @@ class AddVisitRequest(BaseModel):
     exacerbations_this_visit: int
     measurement_source: str
 
+class CreatePatientRequest(BaseModel):
+    patient_id: Optional[str] = None
+    sex: str
+    age_at_baseline: float
+    gold_stage_baseline: Optional[str] = None
+    smoking_status_baseline: str
+    pack_years: float
+    baseline_fev1_liters: float
+    baseline_fvc_liters: float
+    baseline_fev1_fvc_ratio: Optional[float] = None
+    bmi: float
+    activity_level_baseline: Optional[str] = "moderate"
+
+class TwinHealthScoreResponse(BaseModel):
+    patient_id: str
+    health_score: float
+    score_color: str
+    status_label: str
+    current_fev1: float
+    baseline_fev1: float
+    exacerbation_risk_pct: float
+    annual_decline_rate_ml: float
+    years_until_gold_iv: Optional[float]
+    years_until_gold_iv_display: str
+    grades: Dict[str, str]
+    clinical_notes: str
+
+class CohortPercentileResponse(BaseModel):
+    patient_id: Optional[str] = None
+    fev1: float
+    percentile: float
+    cohort_size: int
+    rank: int
+    placement_banner: str
+    summary: str
+
 # Layer 3: Simulation & Models
 class SimulateRequest(BaseModel):
     patient_id: str

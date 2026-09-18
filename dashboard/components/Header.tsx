@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Activity, Cpu, Stethoscope, Sparkles, AlertCircle, Code } from "lucide-react";
+import { Activity, Cpu, Stethoscope, Sparkles, AlertCircle, Code, PlusCircle } from "lucide-react";
 import { checkApiHealth } from "../lib/api";
 
 interface HeaderProps {
@@ -9,6 +9,7 @@ interface HeaderProps {
   setActiveLayer: (layer: "predict" | "twin" | "simulate") => void;
   devMode?: boolean;
   onToggleDevMode?: () => void;
+  onOpenCreateModal?: () => void;
 }
 
 export default function Header({
@@ -16,6 +17,7 @@ export default function Header({
   setActiveLayer,
   devMode = false,
   onToggleDevMode,
+  onOpenCreateModal,
 }: HeaderProps) {
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [loadedCount, setLoadedCount] = useState<number | null>(null);
@@ -112,6 +114,32 @@ export default function Header({
                 display: "inline-block",
               }}
             />
+          </button>
+
+          {/* Create Digital Twin CTA Button */}
+          <button
+            id="create-digital-twin-header-btn"
+            type="button"
+            style={{
+              cursor: "pointer",
+              padding: "0.45rem 1rem",
+              border: "none",
+              background: "linear-gradient(135deg, var(--teal-primary), var(--blue-primary))",
+              color: "#ffffff",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.45rem",
+              fontWeight: 700,
+              fontSize: "0.8125rem",
+              borderRadius: "var(--radius-full)",
+              boxShadow: "0 2px 8px rgba(13, 148, 136, 0.35), 0 1px 2px rgba(0, 0, 0, 0.1)",
+              transition: "all 0.2s ease",
+            }}
+            onClick={onOpenCreateModal}
+            title="Initialize and onboard a new patient digital twin"
+          >
+            <PlusCircle size={15} />
+            <span>Create Digital Twin</span>
           </button>
 
           <nav className="tab-nav" aria-label="Demo layers navigation">

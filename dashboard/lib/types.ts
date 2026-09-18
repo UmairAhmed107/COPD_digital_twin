@@ -41,6 +41,49 @@ export interface AddVisitRequest {
   measurement_source: string;
 }
 
+export interface CreatePatientRequest {
+  patient_id?: string;
+  sex: string;
+  age_at_baseline: number;
+  gold_stage_baseline?: string;
+  smoking_status_baseline: string;
+  pack_years: number;
+  baseline_fev1_liters: number;
+  baseline_fvc_liters: number;
+  baseline_fev1_fvc_ratio?: number;
+  bmi: number;
+  activity_level_baseline?: string;
+}
+
+export interface TwinHealthScoreResponse {
+  patient_id: string;
+  health_score: number;
+  score_color: "green" | "amber" | "red";
+  status_label: string;
+  current_fev1: number;
+  baseline_fev1: number;
+  exacerbation_risk_pct: number;
+  annual_decline_rate_ml: number;
+  years_until_gold_iv: number | null;
+  years_until_gold_iv_display: string;
+  grades: {
+    lung_function: string;
+    decline_rate: string;
+    risk_trend: string;
+  };
+  clinical_notes: string;
+}
+
+export interface CohortPercentileResponse {
+  patient_id?: string;
+  fev1: number;
+  percentile: number;
+  cohort_size: number;
+  rank: number;
+  placement_banner: string;
+  summary: string;
+}
+
 export interface TrajectoryPoint {
   months_since_baseline: number;
   predicted_fev1_liters: number;

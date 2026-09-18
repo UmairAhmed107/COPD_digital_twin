@@ -7,6 +7,7 @@ import Layer1Prediction from "../components/Layer1Prediction";
 import Layer2EvolvingTwin from "../components/Layer2EvolvingTwin";
 import Layer3Simulation from "../components/Layer3Simulation";
 import DataInspector from "../components/DataInspector";
+import CreateTwinModal from "../components/CreateTwinModal";
 import { GOLDEN_PATIENTS, GoldenPatient } from "../lib/goldenPatients";
 import { getPatient } from "../lib/api";
 import { TwinStateResponse } from "../lib/types";
@@ -16,6 +17,7 @@ export default function Home() {
   const [selectedPatient, setSelectedPatient] = useState<GoldenPatient>(GOLDEN_PATIENTS[2]); // Default to P0001 (Intervention-Sensitive)
   const [devMode, setDevMode] = useState<boolean>(false);
   const [activeTwinState, setActiveTwinState] = useState<TwinStateResponse | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
 
   // Sync active twin state when selected patient changes
   useEffect(() => {
@@ -78,6 +80,12 @@ export default function Home() {
     setActiveTwinState(ts);
   }, []);
 
+  const handlePatientCreated = (newTwin: TwinStateResponse) => {
+    handleSelectPatientId(newTwin.patient_id);
+    setActiveTwinState(newTwin);
+    setActiveLayer("twin");
+  };
+
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <Header
@@ -85,6 +93,7 @@ export default function Home() {
         setActiveLayer={setActiveLayer}
         devMode={devMode}
         onToggleDevMode={() => setDevMode(!devMode)}
+        onOpenCreateModal={() => setIsCreateModalOpen(true)}
       />
 
       <main className="app-container" style={{ flex: 1 }}>
@@ -121,6 +130,13 @@ export default function Home() {
         onClose={() => setDevMode(false)}
         twinState={activeTwinState}
         activePatientId={selectedPatient.id}
+      />
+
+      {/* Global Create Digital Twin Onboarding Modal */}
+      <CreateTwinModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handlePatientCreated}
       />
 
       {/* Medical Disclaimer Footer */}

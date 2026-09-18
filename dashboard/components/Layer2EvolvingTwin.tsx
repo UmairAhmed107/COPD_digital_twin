@@ -29,6 +29,7 @@ import { AddVisitRequest, ExplainResponse, PatientSummary, TwinStateResponse } f
 import AskTheTwinDrawer from "./AskTheTwinDrawer";
 import LungVisualizer from "./LungVisualizer";
 import AuditTrail from "./AuditTrail";
+import VitalityCommandCenter from "./VitalityCommandCenter";
 
 interface Layer2EvolvingTwinProps {
   selectedPatientId: string;
@@ -290,6 +291,12 @@ export default function Layer2EvolvingTwin({
         </div>
       ) : twinState ? (
         <>
+          {/* Vitality Command Center Header */}
+          <VitalityCommandCenter
+            patientId={twinState.patient_id}
+            refreshKey={twinState.history.length}
+          />
+
           {/* Twin Profile Overview Cards */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1rem" }}>
             {/* Card 1: Static Demographics */}

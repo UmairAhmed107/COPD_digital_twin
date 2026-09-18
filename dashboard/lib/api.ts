@@ -1,5 +1,7 @@
 import {
   AddVisitRequest,
+  CohortPercentileResponse,
+  CreatePatientRequest,
   ExplainResponse,
   ModelComparisonResponse,
   PatientSummary,
@@ -8,6 +10,7 @@ import {
   SimulateRequest,
   SimulateResponse,
   TwinChatResponse,
+  TwinHealthScoreResponse,
   TwinStateResponse,
 } from "./types";
 
@@ -53,11 +56,42 @@ export async function getPatients(): Promise<PatientSummary[]> {
   return handleResponse<PatientSummary[]>(res);
 }
 
+export async function createPatient(data: CreatePatientRequest): Promise<TwinStateResponse> {
+  const res = await fetch(`${API_BASE_URL}/patients`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return handleResponse<TwinStateResponse>(res);
+}
+
 export async function getPatient(patientId: string): Promise<TwinStateResponse> {
   const res = await fetch(`${API_BASE_URL}/patients/${encodeURIComponent(patientId)}`, {
     cache: "no-store",
   });
   return handleResponse<TwinStateResponse>(res);
+}
+
+export async function getTwinHealthScore(patientId: string): Promise<TwinHealthScoreResponse> {
+  const res = await fetch(
+    `${API_BASE_URL}/patients/${encodeURIComponent(patientId)}/health-score`,
+    { cache: "no-store" }
+  );
+  return handleResponse<TwinHealthScoreResponse>(res);
+}
+
+export async function getCohortPercentile(
+  patientId?: string,
+  fev1?: number
+): Promise<CohortPercentileResponse> {
+  const params = new URLSearchParams();
+  if (patientId) params.append("patient_id", patientId);
+  if (fev1 !== undefined && fev1 !== null) params.append("fev1", fev1.toString());
+
+  const res = await fetch(`${API_BASE_URL}/cohort/percentile?${params.toString()}`, {
+    cache: "no-store",
+  });
+  return handleResponse<CohortPercentileResponse>(res);
 }
 
 export async function addPatientVisit(

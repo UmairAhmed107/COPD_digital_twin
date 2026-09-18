@@ -18,3 +18,8 @@ node_modules/
 .env.*
 .env.local
 
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
