@@ -786,8 +786,11 @@ export default function Layer2EvolvingTwin({
                     name="Observed FEV1"
                     stroke="#0d9488"
                     strokeWidth={3}
+                    isAnimationActive={true}
+                    animationDuration={1200}
+                    animationEasing="ease-in-out"
                     dot={{ fill: "#0d9488", r: 5 }}
-                    activeDot={{ r: 7 }}
+                    activeDot={{ r: 8, stroke: "#ffffff", strokeWidth: 2 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -862,6 +865,7 @@ export default function Layer2EvolvingTwin({
         onClose={() => setShowChatDrawer(false)}
         patientId={selectedPatientId}
         twinState={twinState}
+        latestAuditNote={latestClinicalNote}
       />
     </div>
   );

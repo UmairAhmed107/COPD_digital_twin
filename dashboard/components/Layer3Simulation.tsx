@@ -111,6 +111,65 @@ export default function Layer3Simulation({
     };
   }, []);
 
+  // Derive patient clinical archetype and optimal model recommendation
+  const archetypeInfo = React.useMemo(() => {
+    if (!twinState) {
+      return {
+        name: "Standard Cohort",
+        recommendedModel: "random_forest" as const,
+        recommendedName: "Random Forest",
+        rationale: "Evaluating baseline spirometry data.",
+        isXgbBetter: false,
+        patientTrait: "Evaluating Baseline",
+      };
+    }
+
+    const smoking = String(
+      twinState.current?.smoking_status_at_visit ||
+      twinState.static?.smoking_status_baseline ||
+      ""
+    ).toLowerCase();
+    const isCurrentSmoker = smoking.includes("current");
+    const packYears = Number(twinState.static?.pack_years || 0);
+    const baselineFev1 = Number(twinState.static?.baseline_fev1_liters || 2.0);
+    const currentFev1 = Number(twinState.current?.fev1_liters || baselineFev1);
+    const deltaFev1 = currentFev1 - baselineFev1;
+    const goldStage = String(twinState.static?.gold_stage_baseline || "");
+
+    const isRapidDecliner =
+      isCurrentSmoker ||
+      packYears >= 35 ||
+      deltaFev1 <= -0.2 ||
+      goldStage.includes("III") ||
+      goldStage.includes("IV");
+
+    if (isRapidDecliner) {
+      return {
+        name: "Rapid Decliner / High-Risk Phenotype",
+        recommendedModel: "xgboost" as const,
+        recommendedName: "XGBoost",
+        rationale:
+          "XGBoost's gradient-boosted decision trees capture steep non-linear decay gradients and smoking interaction penalties with lower error on high-risk phenotypes.",
+        isXgbBetter: true,
+        patientTrait: isCurrentSmoker
+          ? "Active Smoker"
+          : packYears >= 35
+          ? `${packYears} Pack-Years`
+          : "Severe Airflow Limitation",
+      };
+    } else {
+      return {
+        name: "Stable Maintenance / Standard Progression",
+        recommendedModel: "random_forest" as const,
+        recommendedName: "Random Forest",
+        rationale:
+          "Random Forest's bagged averaging reduces variance on gradual, linear progression profiles with narrower prediction bounds and higher resilience to measurement noise.",
+        isXgbBetter: false,
+        patientTrait: "Controlled / Former Smoker",
+      };
+    }
+  }, [twinState]);
+
   const handleRunSimulation = async () => {
     if (!selectedPatientId) return;
     setSimulating(true);
@@ -676,47 +735,63 @@ export default function Layer3Simulation({
                 />
                 <Legend verticalAlign="top" height={36} iconType="circle" />
 
-                {selectedScenarios.includes("baseline") && (
-                  <Line
-                    type="monotone"
-                    dataKey="baseline"
-                    name="Baseline (No Intervention)"
-                    stroke={SCENARIO_CONFIGS.baseline.color}
-                    strokeWidth={3}
-                    dot={{ fill: SCENARIO_CONFIGS.baseline.color, r: 4 }}
-                  />
-                )}
-                {selectedScenarios.includes("smoking_cessation") && (
-                  <Line
-                    type="monotone"
-                    dataKey="smoking_cessation"
-                    name="Smoking Cessation"
-                    stroke={SCENARIO_CONFIGS.smoking_cessation.color}
-                    strokeWidth={3}
-                    dot={{ fill: SCENARIO_CONFIGS.smoking_cessation.color, r: 4 }}
-                  />
-                )}
-                {selectedScenarios.includes("increased_activity") && (
-                  <Line
-                    type="monotone"
-                    dataKey="increased_activity"
-                    name="High Physical Activity"
-                    stroke={SCENARIO_CONFIGS.increased_activity.color}
-                    strokeWidth={2}
-                    strokeDasharray="4 4"
-                    dot={{ fill: SCENARIO_CONFIGS.increased_activity.color, r: 4 }}
-                  />
-                )}
-                {selectedScenarios.includes("combined_intervention") && (
-                  <Line
-                    type="monotone"
-                    dataKey="combined_intervention"
-                    name="Combined Intervention"
-                    stroke={SCENARIO_CONFIGS.combined_intervention.color}
-                    strokeWidth={3}
-                    dot={{ fill: SCENARIO_CONFIGS.combined_intervention.color, r: 5 }}
-                  />
-                )}
+                <Line
+                  type="monotone"
+                  dataKey="baseline"
+                  name="Baseline (No Intervention)"
+                  stroke={SCENARIO_CONFIGS.baseline.color}
+                  strokeWidth={3}
+                  hide={!selectedScenarios.includes("baseline")}
+                  isAnimationActive={true}
+                  animationDuration={1100}
+                  animationBegin={0}
+                  animationEasing="ease-in-out"
+                  dot={{ fill: SCENARIO_CONFIGS.baseline.color, r: 4 }}
+                  activeDot={{ r: 7 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="smoking_cessation"
+                  name="Smoking Cessation"
+                  stroke={SCENARIO_CONFIGS.smoking_cessation.color}
+                  strokeWidth={3}
+                  hide={!selectedScenarios.includes("smoking_cessation")}
+                  isAnimationActive={true}
+                  animationDuration={1100}
+                  animationBegin={200}
+                  animationEasing="ease-in-out"
+                  dot={{ fill: SCENARIO_CONFIGS.smoking_cessation.color, r: 4 }}
+                  activeDot={{ r: 7 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="increased_activity"
+                  name="High Physical Activity"
+                  stroke={SCENARIO_CONFIGS.increased_activity.color}
+                  strokeWidth={2}
+                  strokeDasharray="4 4"
+                  hide={!selectedScenarios.includes("increased_activity")}
+                  isAnimationActive={true}
+                  animationDuration={1100}
+                  animationBegin={400}
+                  animationEasing="ease-in-out"
+                  dot={{ fill: SCENARIO_CONFIGS.increased_activity.color, r: 4 }}
+                  activeDot={{ r: 7 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="combined_intervention"
+                  name="Combined Intervention"
+                  stroke={SCENARIO_CONFIGS.combined_intervention.color}
+                  strokeWidth={3}
+                  hide={!selectedScenarios.includes("combined_intervention")}
+                  isAnimationActive={true}
+                  animationDuration={1100}
+                  animationBegin={600}
+                  animationEasing="ease-in-out"
+                  dot={{ fill: SCENARIO_CONFIGS.combined_intervention.color, r: 5 }}
+                  activeDot={{ r: 8 }}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -1139,6 +1214,102 @@ export default function Layer3Simulation({
             <span className="badge badge-online">Held-out Test Set</span>
           </div>
 
+          {/* Archetype Recommendation Banner */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "1rem",
+              padding: "0.85rem 1.15rem",
+              marginBottom: "1.25rem",
+              background: archetypeInfo.isXgbBetter
+                ? "rgba(13, 148, 136, 0.05)"
+                : "rgba(37, 99, 235, 0.05)",
+              border: `1px solid ${
+                archetypeInfo.isXgbBetter
+                  ? "rgba(13, 148, 136, 0.25)"
+                  : "rgba(37, 99, 235, 0.25)"
+              }`,
+              borderRadius: "var(--radius-md)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: "1 1 300px" }}>
+              <div
+                style={{
+                  width: "34px",
+                  height: "34px",
+                  borderRadius: "8px",
+                  background: archetypeInfo.isXgbBetter ? "var(--teal-primary)" : "var(--blue-primary)",
+                  color: "#ffffff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {archetypeInfo.isXgbBetter ? <Zap size={17} /> : <ShieldCheck size={17} />}
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                    Patient {selectedPatientId} Archetype: {archetypeInfo.name}
+                  </span>
+                  <span
+                    className="badge"
+                    style={{
+                      fontSize: "0.7rem",
+                      background: archetypeInfo.isXgbBetter ? "var(--teal-light)" : "var(--blue-light, #dbeafe)",
+                      color: archetypeInfo.isXgbBetter ? "var(--teal-primary)" : "#2563eb",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {archetypeInfo.patientTrait}
+                  </span>
+                </div>
+                <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: "0.2rem", lineHeight: 1.4 }}>
+                  {archetypeInfo.rationale}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              {modelType !== archetypeInfo.recommendedModel ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setModelType(archetypeInfo.recommendedModel)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    fontWeight: 600,
+                    borderColor: archetypeInfo.isXgbBetter ? "var(--teal-primary)" : "#2563eb",
+                    color: archetypeInfo.isXgbBetter ? "var(--teal-primary)" : "#2563eb",
+                  }}
+                >
+                  <Zap size={14} />
+                  Switch Simulation to {archetypeInfo.recommendedName}
+                </button>
+              ) : (
+                <span
+                  className="badge badge-online"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.35rem",
+                    padding: "0.35rem 0.65rem",
+                    fontSize: "0.75rem",
+                  }}
+                >
+                  <CheckCircle2 size={13} />
+                  Active Engine Matches Archetype ({archetypeInfo.recommendedName})
+                </span>
+              )}
+            </div>
+          </div>
+
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.5rem" }}>
             {/* Left: Metrics Table */}
             <div className="table-wrapper">
@@ -1146,16 +1317,98 @@ export default function Layer3Simulation({
                 <thead>
                   <tr>
                     <th>Evaluation Metric</th>
-                    <th>Random Forest</th>
-                    <th>XGBoost</th>
+                    <th
+                      style={
+                        !archetypeInfo.isXgbBetter
+                          ? {
+                              background: "rgba(37, 99, 235, 0.08)",
+                              borderTop: "3px solid #2563eb",
+                              borderLeft: "2px solid rgba(37, 99, 235, 0.25)",
+                              borderRight: "2px solid rgba(37, 99, 235, 0.25)",
+                            }
+                          : {}
+                      }
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.4rem" }}>
+                        <span>Random Forest</span>
+                        {!archetypeInfo.isXgbBetter && (
+                          <span
+                            style={{
+                              fontSize: "0.625rem",
+                              padding: "0.15rem 0.35rem",
+                              borderRadius: "4px",
+                              background: "#2563eb",
+                              color: "#ffffff",
+                              fontWeight: 700,
+                            }}
+                          >
+                            ★ Best Pick
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      style={
+                        archetypeInfo.isXgbBetter
+                          ? {
+                              background: "rgba(13, 148, 136, 0.08)",
+                              borderTop: "3px solid #0d9488",
+                              borderLeft: "2px solid rgba(13, 148, 136, 0.25)",
+                              borderRight: "2px solid rgba(13, 148, 136, 0.25)",
+                            }
+                          : {}
+                      }
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.4rem" }}>
+                        <span>XGBoost</span>
+                        {archetypeInfo.isXgbBetter && (
+                          <span
+                            style={{
+                              fontSize: "0.625rem",
+                              padding: "0.15rem 0.35rem",
+                              borderRadius: "4px",
+                              background: "#0d9488",
+                              color: "#ffffff",
+                              fontWeight: 700,
+                            }}
+                          >
+                            ★ Best Pick
+                          </span>
+                        )}
+                      </div>
+                    </th>
                     <th>Performance Winner</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td><strong>Mean Absolute Error (MAE)</strong></td>
-                    <td>{modelComparison.rf_metrics.mae.toFixed(4)} L</td>
-                    <td>{modelComparison.xgb_metrics.mae.toFixed(4)} L</td>
+                    <td
+                      style={
+                        !archetypeInfo.isXgbBetter
+                          ? {
+                              background: "rgba(37, 99, 235, 0.03)",
+                              borderLeft: "2px solid rgba(37, 99, 235, 0.15)",
+                              borderRight: "2px solid rgba(37, 99, 235, 0.15)",
+                            }
+                          : {}
+                      }
+                    >
+                      {modelComparison.rf_metrics.mae.toFixed(4)} L
+                    </td>
+                    <td
+                      style={
+                        archetypeInfo.isXgbBetter
+                          ? {
+                              background: "rgba(13, 148, 136, 0.03)",
+                              borderLeft: "2px solid rgba(13, 148, 136, 0.15)",
+                              borderRight: "2px solid rgba(13, 148, 136, 0.15)",
+                            }
+                          : {}
+                      }
+                    >
+                      {modelComparison.xgb_metrics.mae.toFixed(4)} L
+                    </td>
                     <td>
                       <span className="badge" style={{ background: "var(--teal-light)", color: "var(--teal-primary)" }}>
                         {modelComparison.xgb_metrics.mae <= modelComparison.rf_metrics.mae ? "XGBoost" : "Random Forest"}
@@ -1164,8 +1417,32 @@ export default function Layer3Simulation({
                   </tr>
                   <tr>
                     <td><strong>Root Mean Squared Error (RMSE)</strong></td>
-                    <td>{modelComparison.rf_metrics.rmse.toFixed(4)} L</td>
-                    <td>{modelComparison.xgb_metrics.rmse.toFixed(4)} L</td>
+                    <td
+                      style={
+                        !archetypeInfo.isXgbBetter
+                          ? {
+                              background: "rgba(37, 99, 235, 0.03)",
+                              borderLeft: "2px solid rgba(37, 99, 235, 0.15)",
+                              borderRight: "2px solid rgba(37, 99, 235, 0.15)",
+                            }
+                          : {}
+                      }
+                    >
+                      {modelComparison.rf_metrics.rmse.toFixed(4)} L
+                    </td>
+                    <td
+                      style={
+                        archetypeInfo.isXgbBetter
+                          ? {
+                              background: "rgba(13, 148, 136, 0.03)",
+                              borderLeft: "2px solid rgba(13, 148, 136, 0.15)",
+                              borderRight: "2px solid rgba(13, 148, 136, 0.15)",
+                            }
+                          : {}
+                      }
+                    >
+                      {modelComparison.xgb_metrics.rmse.toFixed(4)} L
+                    </td>
                     <td>
                       <span className="badge" style={{ background: "var(--teal-light)", color: "var(--teal-primary)" }}>
                         {modelComparison.xgb_metrics.rmse <= modelComparison.rf_metrics.rmse ? "XGBoost" : "Random Forest"}
@@ -1174,11 +1451,80 @@ export default function Layer3Simulation({
                   </tr>
                   <tr>
                     <td><strong>Coefficient of Determination (R²)</strong></td>
-                    <td>{modelComparison.rf_metrics.r2.toFixed(4)}</td>
-                    <td>{modelComparison.xgb_metrics.r2.toFixed(4)}</td>
+                    <td
+                      style={
+                        !archetypeInfo.isXgbBetter
+                          ? {
+                              background: "rgba(37, 99, 235, 0.03)",
+                              borderLeft: "2px solid rgba(37, 99, 235, 0.15)",
+                              borderRight: "2px solid rgba(37, 99, 235, 0.15)",
+                            }
+                          : {}
+                      }
+                    >
+                      {modelComparison.rf_metrics.r2.toFixed(4)}
+                    </td>
+                    <td
+                      style={
+                        archetypeInfo.isXgbBetter
+                          ? {
+                              background: "rgba(13, 148, 136, 0.03)",
+                              borderLeft: "2px solid rgba(13, 148, 136, 0.15)",
+                              borderRight: "2px solid rgba(13, 148, 136, 0.15)",
+                            }
+                          : {}
+                      }
+                    >
+                      {modelComparison.xgb_metrics.r2.toFixed(4)}
+                    </td>
                     <td>
                       <span className="badge" style={{ background: "var(--teal-light)", color: "var(--teal-primary)" }}>
                         {modelComparison.xgb_metrics.r2 >= modelComparison.rf_metrics.r2 ? "XGBoost" : "Random Forest"}
+                      </span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>Archetype Calibration Fit</strong></td>
+                    <td
+                      style={
+                        !archetypeInfo.isXgbBetter
+                          ? {
+                              background: "rgba(37, 99, 235, 0.03)",
+                              borderLeft: "2px solid rgba(37, 99, 235, 0.15)",
+                              borderRight: "2px solid rgba(37, 99, 235, 0.15)",
+                              fontWeight: 600,
+                              color: "#2563eb",
+                            }
+                          : { color: "var(--text-secondary)" }
+                      }
+                    >
+                      {!archetypeInfo.isXgbBetter ? "Optimal Fit (Low Variance)" : "Standard Baseline"}
+                    </td>
+                    <td
+                      style={
+                        archetypeInfo.isXgbBetter
+                          ? {
+                              background: "rgba(13, 148, 136, 0.03)",
+                              borderLeft: "2px solid rgba(13, 148, 136, 0.15)",
+                              borderRight: "2px solid rgba(13, 148, 136, 0.15)",
+                              fontWeight: 600,
+                              color: "var(--teal-primary)",
+                            }
+                          : { color: "var(--text-secondary)" }
+                      }
+                    >
+                      {archetypeInfo.isXgbBetter ? "Optimal Fit (Nonlinear Decay)" : "Standard Baseline"}
+                    </td>
+                    <td>
+                      <span
+                        className="badge"
+                        style={{
+                          background: archetypeInfo.isXgbBetter ? "var(--teal-light)" : "var(--blue-light, #dbeafe)",
+                          color: archetypeInfo.isXgbBetter ? "var(--teal-primary)" : "#2563eb",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {archetypeInfo.recommendedName}
                       </span>
                     </td>
                   </tr>

@@ -31,6 +31,7 @@ export default function VitalityCommandCenter({
   const [cohortRank, setCohortRank] = useState<CohortPercentileResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [animatedScore, setAnimatedScore] = useState<number>(0);
 
   useEffect(() => {
     let mounted = true;
@@ -62,6 +63,34 @@ export default function VitalityCommandCenter({
       mounted = false;
     };
   }, [patientId, refreshKey]);
+
+  // Fluid spin-up animation for Health Score Gauge on mount and when score changes
+  useEffect(() => {
+    if (!healthScore) {
+      setAnimatedScore(0);
+      return;
+    }
+
+    const targetScore = Math.round(healthScore.health_score);
+    const duration = 1000; // 1 second fluid spin-up
+    const startTime = performance.now();
+    let animId: number;
+
+    const step = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Cubic ease-out: 1 - (1 - progress)^3
+      const ease = 1 - Math.pow(1 - progress, 3);
+      setAnimatedScore(Math.round(ease * targetScore));
+
+      if (progress < 1) {
+        animId = requestAnimationFrame(step);
+      }
+    };
+
+    animId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animId);
+  }, [healthScore?.health_score, patientId]);
 
   if (loading) {
     return (
@@ -104,7 +133,7 @@ export default function VitalityCommandCenter({
     ? "rgba(245, 158, 11, 0.25)"
     : "rgba(239, 68, 68, 0.25)";
 
-  const strokeDash = `${healthScore.health_score * 2.51}, 251.2`;
+  const strokeDash = `${animatedScore * 2.512}, 251.2`;
 
   const getGradeColor = (grade: string) => {
     switch (grade) {
@@ -223,7 +252,15 @@ export default function VitalityCommandCenter({
         >
           {/* Radial SVG Gauge */}
           <div style={{ position: "relative", width: "90px", height: "90px", flexShrink: 0 }}>
-            <svg viewBox="0 0 100 100" style={{ transform: "rotate(-90deg)", width: "100%", height: "100%" }}>
+            <svg
+              viewBox="0 0 100 100"
+              style={{
+                transform: "rotate(-90deg)",
+                width: "100%",
+                height: "100%",
+                filter: `drop-shadow(0 0 8px ${accentGlow})`,
+              }}
+            >
               {/* Background track circle */}
               <circle
                 cx="50"
@@ -243,7 +280,9 @@ export default function VitalityCommandCenter({
                 strokeWidth="8"
                 strokeDasharray={strokeDash}
                 strokeLinecap="round"
-                style={{ transition: "stroke-dasharray 0.8s ease" }}
+                style={{
+                  transition: "stroke-dasharray 0.08s linear, stroke 0.4s ease",
+                }}
               />
             </svg>
             <div
@@ -260,7 +299,7 @@ export default function VitalityCommandCenter({
               }}
             >
               <span style={{ fontSize: "1.5rem", fontWeight: 800, color: "#ffffff", lineHeight: 1 }}>
-                {Math.round(healthScore.health_score)}
+                {animatedScore}
               </span>
               <span style={{ fontSize: "0.625rem", color: "#94a3b8", textTransform: "uppercase", marginTop: "2px" }}>
                 Score
