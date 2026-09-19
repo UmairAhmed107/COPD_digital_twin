@@ -24,12 +24,13 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
-import { addPatientVisit, getPatient, getPatients, getTwinExplanation } from "../lib/api";
-import { AddVisitRequest, ExplainResponse, PatientSummary, TwinStateResponse } from "../lib/types";
+import { addPatientVisit, getPatient, getTwinExplanation } from "../lib/api";
+import { AddVisitRequest, ExplainResponse, TwinStateResponse } from "../lib/types";
 import AskTheTwinDrawer from "./AskTheTwinDrawer";
 import LungVisualizer from "./LungVisualizer";
 import AuditTrail, { generateClinicalNote } from "./AuditTrail";
 import VitalityCommandCenter from "./VitalityCommandCenter";
+import PatientSearchBar from "./PatientSearchBar";
 import { useToast } from "../context/ToastContext";
 
 interface Layer2EvolvingTwinProps {
@@ -44,7 +45,6 @@ export default function Layer2EvolvingTwin({
   onTwinStateChange,
 }: Layer2EvolvingTwinProps) {
   const { showToast } = useToast();
-  const [patientList, setPatientList] = useState<PatientSummary[]>([]);
   const [twinState, setTwinState] = useState<TwinStateResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,25 +78,6 @@ export default function Layer2EvolvingTwin({
     exacerbations_this_visit: 0,
     measurement_source: "clinic",
   });
-
-  // Fetch patient list on mount
-  useEffect(() => {
-    let mounted = true;
-    async function loadPatients() {
-      try {
-        const patients = await getPatients();
-        if (mounted) {
-          setPatientList(patients);
-        }
-      } catch (err: any) {
-        if (mounted) setError("Failed to load patient directory.");
-      }
-    }
-    loadPatients();
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   // Fetch twin state when selectedPatientId changes (strictly depends only on selectedPatientId)
   useEffect(() => {
@@ -271,40 +252,79 @@ export default function Layer2EvolvingTwin({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-      {/* Patient Picker Top Bar */}
-      <div className="card" style={{ padding: "1.25rem" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
+      {/* Active Digital Twin Status Header & Search */}
+      <div className="card" style={{ padding: "1.1rem 1.25rem" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "1rem",
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <div className="brand-icon" style={{ width: "36px", height: "36px", background: "var(--teal-primary)" }}>
-              <User size={18} />
+            <div
+              className="brand-icon"
+              style={{
+                width: "38px",
+                height: "38px",
+                background: "var(--teal-primary)",
+                color: "#ffffff",
+              }}
+            >
+              <User size={19} />
             </div>
             <div>
-              <label htmlFor="patient-select-dropdown" className="form-label" style={{ marginBottom: "0.15rem" }}>
-                Patient Digital Twin Selector
-              </label>
-              <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                Switch between synthetic patients to inspect longitudinal evolving states.
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                <h2
+                  style={{
+                    fontSize: "1.0625rem",
+                    fontWeight: 700,
+                    color: "var(--text-primary)",
+                    margin: 0,
+                  }}
+                >
+                  Active Digital Twin: {selectedPatientId}
+                </h2>
+                {twinState && (
+                  <>
+                    <span className="badge badge-demo">
+                      {twinState.static?.sex || "M"}, Age{" "}
+                      {Math.round(
+                        twinState.current?.age_at_visit ||
+                          twinState.static?.age_at_baseline ||
+                          65
+                      )}
+                    </span>
+                    <span
+                      className="badge"
+                      style={{
+                        backgroundColor: "var(--teal-light)",
+                        color: "var(--teal-primary)",
+                        border: "1px solid var(--teal-border)",
+                      }}
+                    >
+                      GOLD {twinState.static?.gold_stage_baseline || "II"}
+                    </span>
+                    <span className="badge badge-demo">
+                      {twinState.history?.length || 0} Visits Logged
+                    </span>
+                  </>
+                )}
+              </div>
+              <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.15rem" }}>
+                Longitudinal state tracking and clinical memory across recorded patient encounters.
               </p>
             </div>
           </div>
 
-          <div style={{ minWidth: "320px", flex: 1, maxWidth: "520px" }}>
-            <select
-              id="patient-select-dropdown"
-              className="form-select"
-              value={selectedPatientId}
-              onChange={(e) => onSelectPatientId(e.target.value)}
-            >
-              {patientList.length > 0 ? (
-                patientList.slice(0, 50).map((p) => (
-                  <option key={p.patient_id} value={p.patient_id}>
-                    {p.patient_id} — {p.summary}
-                  </option>
-                ))
-              ) : (
-                <option value={selectedPatientId}>{selectedPatientId} (Loading...)</option>
-              )}
-            </select>
+          <div style={{ minWidth: "260px", flex: "0 1 380px" }}>
+            <PatientSearchBar
+              selectedPatientId={selectedPatientId}
+              onSelectPatientId={onSelectPatientId}
+              placeholder="Search or switch digital twin..."
+            />
           </div>
         </div>
       </div>

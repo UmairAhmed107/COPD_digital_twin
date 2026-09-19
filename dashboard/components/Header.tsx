@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Activity, Cpu, Stethoscope, Sparkles, AlertCircle, Code, PlusCircle } from "lucide-react";
 import { checkApiHealth } from "../lib/api";
+import PatientSearchBar from "./PatientSearchBar";
 
 interface HeaderProps {
   activeLayer: "predict" | "twin" | "simulate";
@@ -10,6 +11,8 @@ interface HeaderProps {
   devMode?: boolean;
   onToggleDevMode?: () => void;
   onOpenCreateModal?: () => void;
+  selectedPatientId?: string;
+  onSelectPatientId?: (id: string) => void;
 }
 
 export default function Header({
@@ -18,6 +21,8 @@ export default function Header({
   devMode = false,
   onToggleDevMode,
   onOpenCreateModal,
+  selectedPatientId,
+  onSelectPatientId,
 }: HeaderProps) {
   const [isOnline, setIsOnline] = useState<boolean | null>(null);
   const [loadedCount, setLoadedCount] = useState<number | null>(null);
@@ -65,6 +70,24 @@ export default function Header({
             </p>
           </div>
         </div>
+
+        {/* Global Patient Search Bar in Header */}
+        {onSelectPatientId && (
+          <div
+            className="header-search-slot"
+            style={{
+              flex: "0 1 360px",
+              minWidth: "220px",
+              margin: "0 1rem",
+            }}
+          >
+            <PatientSearchBar
+              selectedPatientId={selectedPatientId}
+              onSelectPatientId={onSelectPatientId}
+              placeholder="Search cohort (e.g. P0042, GOLD III)..."
+            />
+          </div>
+        )}
 
         <div className="header-badges">
           {isOnline === true ? (

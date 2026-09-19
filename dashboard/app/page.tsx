@@ -10,22 +10,49 @@ import DataInspector from "../components/DataInspector";
 import CreateTwinModal from "../components/CreateTwinModal";
 import { GOLDEN_PATIENTS, GoldenPatient } from "../lib/goldenPatients";
 import { getPatient } from "../lib/api";
-import { TwinStateResponse } from "../lib/types";
+import { PredictRequest, TwinStateResponse } from "../lib/types";
 
 export default function Home() {
   const [activeLayer, setActiveLayer] = useState<"predict" | "twin" | "simulate">("twin");
   const [selectedPatient, setSelectedPatient] = useState<GoldenPatient>(GOLDEN_PATIENTS[2]); // Default to P0001 (Intervention-Sensitive)
   const [devMode, setDevMode] = useState<boolean>(false);
   const [activeTwinState, setActiveTwinState] = useState<TwinStateResponse | null>(null);
+  const [patientVitals, setPatientVitals] = useState<PredictRequest | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
 
-  // Sync active twin state when selected patient changes
+  // Sync active twin state and extract real-world vitals when selected patient changes
   useEffect(() => {
     let mounted = true;
     async function syncTwin() {
       try {
         const data = await getPatient(selectedPatient.id);
-        if (mounted) setActiveTwinState(data);
+        if (mounted) {
+          setActiveTwinState(data);
+
+          // Extract latest real-world vitals from the patient's twin state
+          const latestVisit =
+            data.history && data.history.length > 0
+              ? data.history[data.history.length - 1]
+              : data.current || {};
+
+          const extractedVitals: PredictRequest = {
+            age_at_visit: Number(latestVisit.age_at_visit ?? data.static?.age_at_baseline ?? 65),
+            sex: String(data.static?.sex ?? "M"),
+            gold_stage_baseline: String(data.static?.gold_stage_baseline ?? "II (Moderate)"),
+            smoking_status_at_visit: String(
+              latestVisit.smoking_status_at_visit ?? data.static?.smoking_status_baseline ?? "former"
+            ),
+            pack_years: Number(data.static?.pack_years ?? 30),
+            activity_level_at_visit: String(latestVisit.activity_level_at_visit ?? "moderate"),
+            bmi: Number(data.static?.bmi ?? 26),
+            months_since_baseline: Number(latestVisit.months_since_baseline ?? 0),
+            baseline_fev1_liters: Number(
+              data.static?.baseline_fev1_liters ?? latestVisit.fev1_liters ?? 2.0
+            ),
+          };
+
+          setPatientVitals(extractedVitals);
+        }
       } catch {
         // Handled silently
       }
@@ -38,21 +65,23 @@ export default function Home() {
 
   const handleSelectGoldenPatient = (p: GoldenPatient) => {
     setSelectedPatient(p);
+    setPatientVitals(p.samplePredictValues);
   };
 
   const handleSelectPatientId = (id: string) => {
     const matched = GOLDEN_PATIENTS.find((p) => p.id === id);
     if (matched) {
       setSelectedPatient(matched);
+      setPatientVitals(matched.samplePredictValues);
     } else {
       setSelectedPatient({
         id,
         name: `Patient ${id}`,
         archetype: "stable_maintenance",
-        badgeLabel: "Selected",
+        badgeLabel: "Cohort Twin",
         colorScheme: "teal",
-        tagline: "Custom patient loaded from digital twin cohort",
-        clinicalNarrative: "Patient loaded from synthetic longitudinal dataset.",
+        tagline: "Cohort digital twin loaded from database",
+        clinicalNarrative: `Inspecting digital twin record for patient ${id}.`,
         quickMetrics: {
           age: 65,
           sex: "M",
@@ -94,20 +123,26 @@ export default function Home() {
         devMode={devMode}
         onToggleDevMode={() => setDevMode(!devMode)}
         onOpenCreateModal={() => setIsCreateModalOpen(true)}
+        selectedPatientId={selectedPatient.id}
+        onSelectPatientId={handleSelectPatientId}
       />
 
       <main className="app-container" style={{ flex: 1 }}>
-        {/* Persistent Quick-Select Golden Demo Bar */}
+        {/* Persistent Quick-Select Golden Demo Bar with Integrated Search */}
         <GoldenDemoBar
           selectedPatientId={selectedPatient.id}
           onSelectPatient={handleSelectGoldenPatient}
+          onSelectPatientId={handleSelectPatientId}
         />
 
         {/* Dynamic Layer Switcher */}
         {activeLayer === "predict" && (
           <Layer1Prediction
-            initialValues={selectedPatient.samplePredictValues}
+            key={selectedPatient.id}
+            initialValues={patientVitals || selectedPatient.samplePredictValues}
             activeGoldenPatient={selectedPatient}
+            selectedPatientId={selectedPatient.id}
+            onSelectPatientId={handleSelectPatientId}
           />
         )}
 
@@ -120,7 +155,10 @@ export default function Home() {
         )}
 
         {activeLayer === "simulate" && (
-          <Layer3Simulation selectedPatientId={selectedPatient.id} />
+          <Layer3Simulation
+            selectedPatientId={selectedPatient.id}
+            onSelectPatientId={handleSelectPatientId}
+          />
         )}
       </main>
 

@@ -17,10 +17,13 @@ import { predictFEV1 } from "../lib/api";
 import { PredictRequest, PredictResponse } from "../lib/types";
 import { GoldenPatient } from "../lib/goldenPatients";
 import { useToast } from "../context/ToastContext";
+import PatientSearchBar from "./PatientSearchBar";
 
 interface Layer1PredictionProps {
   initialValues?: PredictRequest;
   activeGoldenPatient?: GoldenPatient | null;
+  selectedPatientId?: string;
+  onSelectPatientId?: (id: string) => void;
 }
 
 const DEFAULT_INPUTS: PredictRequest = {
@@ -45,6 +48,8 @@ function getBMICategory(bmi: number): { label: string; color: string } {
 export default function Layer1Prediction({
   initialValues,
   activeGoldenPatient,
+  selectedPatientId,
+  onSelectPatientId,
 }: Layer1PredictionProps) {
   const { showToast } = useToast();
   const [formData, setFormData] = useState<PredictRequest>(initialValues || DEFAULT_INPUTS);
@@ -58,12 +63,14 @@ export default function Layer1Prediction({
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastAlertTriggerRef = useRef<string>("");
 
-  // Sync when golden patient changes
+  // Sync when initialValues or golden patient changes
   useEffect(() => {
-    if (activeGoldenPatient) {
+    if (initialValues) {
+      setFormData(initialValues);
+    } else if (activeGoldenPatient) {
       setFormData(activeGoldenPatient.samplePredictValues);
     }
-  }, [activeGoldenPatient]);
+  }, [initialValues, activeGoldenPatient]);
 
   const handleChange = (field: keyof PredictRequest, value: string | number) => {
     setFormData((prev) => ({
@@ -185,16 +192,87 @@ export default function Layer1Prediction({
   const bmiMeta = getBMICategory(formData.bmi);
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "1.5rem" }}>
-      {/* Left Column: Live Slider Playground */}
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <h2 className="card-title">
-                <Cpu size={19} color="#0d9488" />
-                Layer 1: Live Slider Playground
-              </h2>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+      {/* Active Digital Twin Baseline Header & Search */}
+      <div className="card" style={{ padding: "1.1rem 1.25rem" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "1rem",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <div
+              className="brand-icon"
+              style={{
+                width: "38px",
+                height: "38px",
+                background: "var(--teal-primary)",
+                color: "#ffffff",
+              }}
+            >
+              <Cpu size={19} />
+            </div>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                <h2
+                  style={{
+                    fontSize: "1.0625rem",
+                    fontWeight: 700,
+                    color: "var(--text-primary)",
+                    margin: 0,
+                  }}
+                >
+                  Prediction Target: {selectedPatientId || "Custom Patient"}
+                </h2>
+                <span className="badge badge-demo">
+                  {formData.sex}, Age {Math.round(formData.age_at_visit)}
+                </span>
+                <span
+                  className="badge"
+                  style={{
+                    backgroundColor: "var(--teal-light)",
+                    color: "var(--teal-primary)",
+                    border: "1px solid var(--teal-border)",
+                  }}
+                >
+                  {formData.gold_stage_baseline}
+                </span>
+                <span className="badge badge-demo">
+                  {formData.pack_years} Pack-Years
+                </span>
+              </div>
+              <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.15rem" }}>
+                Adjust tactile sliders below or search any cohort patient to test machine learning model sensitivity.
+              </p>
+            </div>
+          </div>
+
+          {onSelectPatientId && (
+            <div style={{ minWidth: "260px", flex: "0 1 380px" }}>
+              <PatientSearchBar
+                selectedPatientId={selectedPatientId}
+                onSelectPatientId={onSelectPatientId}
+                placeholder="Load patient vitals into sliders..."
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "1.5rem" }}>
+        {/* Left Column: Live Slider Playground */}
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <h2 className="card-title">
+                  <Cpu size={19} color="#0d9488" />
+                  Layer 1: Live Slider Playground
+                </h2>
               {isDebouncing ? (
                 <span
                   className="badge"
@@ -731,5 +809,6 @@ export default function Layer1Prediction({
         </div>
       </div>
     </div>
+  </div>
   );
 }

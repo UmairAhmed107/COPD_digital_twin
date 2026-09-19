@@ -1,17 +1,18 @@
-"use client";
-
 import React from "react";
 import { Zap, TrendingDown, ShieldCheck, Flame } from "lucide-react";
 import { GOLDEN_PATIENTS, GoldenPatient } from "../lib/goldenPatients";
+import PatientSearchBar from "./PatientSearchBar";
 
 interface GoldenDemoBarProps {
   selectedPatientId: string;
   onSelectPatient: (patient: GoldenPatient) => void;
+  onSelectPatientId?: (id: string) => void;
 }
 
 export default function GoldenDemoBar({
   selectedPatientId,
   onSelectPatient,
+  onSelectPatientId,
 }: GoldenDemoBarProps) {
   const getIcon = (archetype: string) => {
     switch (archetype) {
@@ -28,14 +29,35 @@ export default function GoldenDemoBar({
 
   return (
     <section className="golden-bar-container" aria-label="Pre-seeded Golden Demo Patients">
-      <div className="golden-bar-header">
-        <div className="golden-bar-title">
-          <Zap size={15} color="#0d9488" />
-          <span>Golden Demo Profiles (Pre-seeded Archetypes)</span>
+      <div
+        className="golden-bar-header"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "1rem",
+        }}
+      >
+        <div>
+          <div className="golden-bar-title">
+            <Zap size={15} color="#0d9488" />
+            <span>Golden Demo Profiles (Pre-seeded Archetypes)</span>
+          </div>
+          <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            Select an archetype or search any digital twin from the complete database cohort
+          </span>
         </div>
-        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-          Select an archetype to auto-populate inputs across all three demo layers
-        </span>
+
+        {onSelectPatientId && (
+          <div style={{ flex: "0 1 380px", minWidth: "260px" }}>
+            <PatientSearchBar
+              selectedPatientId={selectedPatientId}
+              onSelectPatientId={onSelectPatientId}
+              placeholder="Search complete cohort (100+ twins)..."
+            />
+          </div>
+        )}
       </div>
 
       <div className="golden-badges-grid">

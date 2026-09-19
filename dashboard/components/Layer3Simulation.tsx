@@ -29,9 +29,11 @@ import {
 import { getModelComparison, getPatient, simulateFuture } from "../lib/api";
 import { ModelComparisonResponse, SimulateResponse, TwinStateResponse } from "../lib/types";
 import LungVisualizer from "./LungVisualizer";
+import PatientSearchBar from "./PatientSearchBar";
 
 interface Layer3SimulationProps {
   selectedPatientId: string;
+  onSelectPatientId?: (id: string) => void;
 }
 
 function getGoldStageFromFEV1(fev1: number, referenceFev1: number = 3.2): "I" | "II" | "III" | "IV" {
@@ -49,7 +51,10 @@ const SCENARIO_CONFIGS: Record<string, { label: string; color: string; strokeDas
   combined_intervention: { label: "Combined (Cessation + High Activity)", color: "#059669" },
 };
 
-export default function Layer3Simulation({ selectedPatientId }: Layer3SimulationProps) {
+export default function Layer3Simulation({
+  selectedPatientId,
+  onSelectPatientId,
+}: Layer3SimulationProps) {
   const [twinState, setTwinState] = useState<TwinStateResponse | null>(null);
   const [horizonMonths, setHorizonMonths] = useState<number>(36);
   const [stepMonths, setStepMonths] = useState<number>(6);
@@ -271,6 +276,85 @@ export default function Layer3Simulation({ selectedPatientId }: Layer3Simulation
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+      {/* Active Digital Twin Simulation Header & Search */}
+      <div className="card" style={{ padding: "1.1rem 1.25rem" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "1rem",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <div
+              className="brand-icon"
+              style={{
+                width: "38px",
+                height: "38px",
+                background: "linear-gradient(135deg, var(--teal-primary), var(--blue-primary))",
+                color: "#ffffff",
+              }}
+            >
+              <Sparkles size={19} />
+            </div>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                <h2
+                  style={{
+                    fontSize: "1.0625rem",
+                    fontWeight: 700,
+                    color: "var(--text-primary)",
+                    margin: 0,
+                  }}
+                >
+                  Simulation Target: {selectedPatientId}
+                </h2>
+                {twinState && (
+                  <>
+                    <span className="badge badge-demo">
+                      {twinState.static?.sex || "M"}, Age{" "}
+                      {Math.round(
+                        twinState.current?.age_at_visit ||
+                          twinState.static?.age_at_baseline ||
+                          65
+                      )}
+                    </span>
+                    <span
+                      className="badge"
+                      style={{
+                        backgroundColor: "var(--teal-light)",
+                        color: "var(--teal-primary)",
+                        border: "1px solid var(--teal-border)",
+                      }}
+                    >
+                      Baseline FEV1: {Number(twinState.static?.baseline_fev1_liters || 2.0).toFixed(2)}L
+                    </span>
+                    <span className="badge badge-demo">
+                      Current FEV1: {currentFev1.toFixed(2)}L
+                    </span>
+                  </>
+                )}
+              </div>
+              <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.15rem" }}>
+                Multi-scenario trajectory simulation across 36 months of projected clinical interventions.
+              </p>
+            </div>
+          </div>
+
+          {onSelectPatientId && (
+            <div style={{ minWidth: "260px", flex: "0 1 380px" }}>
+              <PatientSearchBar
+                selectedPatientId={selectedPatientId}
+                onSelectPatientId={onSelectPatientId}
+                placeholder="Switch simulation patient..."
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Simulation Controls Card */}
       <div className="card">
         <div className="card-header">
