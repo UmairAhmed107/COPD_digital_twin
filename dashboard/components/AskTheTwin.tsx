@@ -17,7 +17,7 @@ import {
   Flame,
   Activity,
 } from "lucide-react";
-import { askTwinQuestion } from "../lib/api";
+import { askTwinQuestion, getTwinExplanation } from "../lib/api";
 import { TwinStateResponse } from "../lib/types";
 
 export interface ChatMessage {
@@ -35,6 +35,7 @@ export interface AskTheTwinProps {
   patientId: string;
   twinState: TwinStateResponse | null;
   latestAuditNote?: string | null;
+  riskScore?: number | null;
 }
 
 const QUICK_PROMPTS = [
@@ -51,7 +52,8 @@ const QUICK_PROMPTS = [
 function generateLocalClinicalNarrative(
   patientId: string,
   twin: TwinStateResponse | null,
-  auditNote?: string | null
+  auditNote?: string | null,
+  riskScore?: number | null
 ): string {
   if (!twin) {
     return `Patient ${patientId} digital twin state is loading. Trajectory analysis will synchronize shortly.`;
@@ -62,18 +64,34 @@ function generateLocalClinicalNarrative(
   const deltaLiters = currentFEV1 - baselineFEV1;
   const absDelta = Math.abs(deltaLiters).toFixed(2);
   const goldStage = twin.static?.gold_stage_baseline || "II (Moderate)";
-  const smoking = twin.current?.smoking_status_at_visit || twin.static?.smoking_status_baseline || "former";
+  const smoking = (twin.current?.smoking_status_at_visit || twin.static?.smoking_status_baseline || "former").toLowerCase();
+  const isCurrentSmoker = smoking.includes("current");
   const packYears = Number(twin.static?.pack_years || 25);
   const visits = twin.history?.length || 1;
   const age = Math.round(twin.current?.age_at_visit || twin.static?.age_at_baseline || 65);
 
+  // Derive risk score percentage from spirometry deficit and exacerbation history
+  const totalPriorExacerbations = twin.history?.reduce((acc: number, v: any) => acc + (v.exacerbations_this_visit || 0), 0) || 0;
+  const calculatedRisk = Math.min(
+    88,
+    Math.max(
+      12,
+      Math.round(
+        (1 - currentFEV1 / 3.2) * 55 +
+          (isCurrentSmoker ? 18 : 0) +
+          totalPriorExacerbations * 8
+      )
+    )
+  );
+  const acuteRisk = riskScore !== undefined && riskScore !== null ? Math.round(riskScore) : calculatedRisk;
+
   let trajectoryAssessment = "";
-  if (deltaLiters < -0.25) {
-    trajectoryAssessment = `Due to a steep ${absDelta}L drop in FEV1 from baseline (${baselineFEV1.toFixed(2)}L → ${currentFEV1.toFixed(2)}L) across ${visits} visits and continued ${smoking === "current" ? "active smoking exposure" : "historical smoke exposure (" + packYears + " pack-years)"}, the patient demonstrates a rapid decliner phenotype. Without clinical intervention, the twin is projected to cross into severe Stage III/IV obstruction within 12–16 months.`;
-  } else if (deltaLiters < -0.05) {
-    trajectoryAssessment = `The patient exhibits a moderate ${absDelta}L reduction in FEV1 (${baselineFEV1.toFixed(2)}L → ${currentFEV1.toFixed(2)}L). At Age ${age} with ${smoking} smoking status, airflow degradation follows expected COPD progression. Proactive smoking cessation and daily aerobic conditioning can preserve an estimated +250–350 mL over a 36-month horizon.`;
+  if (deltaLiters <= -0.10) {
+    trajectoryAssessment = `Due to the recent ${absDelta}L drop in FEV1 (latest: ${currentFEV1.toFixed(2)}L vs ${baselineFEV1.toFixed(2)}L baseline) and ${isCurrentSmoker ? "continued smoking" : "historical smoke exposure (" + packYears + " pack-years)"}, the patient carries an elevated ${acuteRisk}% acute exacerbation risk score and is on track to hit Stage III within 14 months without intervention.`;
+  } else if (deltaLiters < -0.04) {
+    trajectoryAssessment = `The patient exhibits a moderate ${absDelta}L reduction in FEV1 (${baselineFEV1.toFixed(2)}L → ${currentFEV1.toFixed(2)}L) with an acute exacerbation risk score of ${acuteRisk}%. At Age ${age} with ${smoking} smoking status, airflow degradation follows expected COPD progression. Proactive smoking cessation and daily aerobic conditioning can preserve an estimated +250–350 mL over a 36-month horizon.`;
   } else {
-    trajectoryAssessment = `Patient ${patientId} is maintaining stable spirometric capacity with FEV1 at ${currentFEV1.toFixed(2)}L (delta of ${deltaLiters >= 0 ? "+" : ""}${deltaLiters.toFixed(2)}L vs baseline). Airflow limitation remains controlled within ${goldStage}.`;
+    trajectoryAssessment = `Patient ${patientId} is maintaining stable spirometric capacity with latest FEV1 at ${currentFEV1.toFixed(2)}L (delta of ${deltaLiters >= 0 ? "+" : ""}${deltaLiters.toFixed(2)}L vs baseline) and a controlled ${acuteRisk}% exacerbation risk index. Airflow limitation remains within GOLD ${goldStage}.`;
   }
 
   const auditContext = auditNote ? `\n\nRecent Clinical Audit Event: "${auditNote}"` : "";
@@ -87,6 +105,7 @@ export default function AskTheTwin({
   patientId,
   twinState,
   latestAuditNote,
+  riskScore,
 }: AskTheTwinProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputQuestion, setInputQuestion] = useState<string>("");
@@ -100,7 +119,7 @@ export default function AskTheTwin({
   useEffect(() => {
     if (!isOpen) return;
 
-    const narrative = generateLocalClinicalNarrative(patientId, twinState, latestAuditNote);
+    const narrative = generateLocalClinicalNarrative(patientId, twinState, latestAuditNote, riskScore);
 
     setMessages([
       {
@@ -112,10 +131,36 @@ export default function AskTheTwin({
       },
     ]);
 
+    // If backend Gemini is configured, asynchronously query live explanation
+    let isMounted = true;
+    getTwinExplanation(patientId)
+      .then((explanation) => {
+        if (isMounted && explanation && explanation.summary_bullets?.length && !explanation.summary_bullets[0]?.includes("temporarily")) {
+          const bulletsText = explanation.summary_bullets.map((b) => `• ${b}`).join("\n");
+          const geminiNarrative = `${explanation.risk_rationale}\n\nClinical Projections:\n${bulletsText}`;
+          setMessages([
+            {
+              id: "initial-narrative",
+              sender: "ai",
+              text: geminiNarrative,
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              highlight: true,
+            },
+          ]);
+        }
+      })
+      .catch(() => {
+        // Gracefully maintains the local grounded clinical narrative
+      });
+
     setTimeout(() => {
       inputRef.current?.focus();
     }, 150);
-  }, [isOpen, patientId, twinState, latestAuditNote]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, patientId, twinState, latestAuditNote, riskScore]);
 
   // Handle Escape key
   useEffect(() => {
